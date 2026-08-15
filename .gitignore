@@ -6,6 +6,3 @@ venv/
 .ipynb_checkpoints/
 .DS_Store
 *.zip
-.claude/
-.superpowers/
-ML_Assignment_2.md
