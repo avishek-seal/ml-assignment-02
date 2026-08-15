@@ -42,8 +42,16 @@ def load_reference_metrics() -> dict:
 
 
 @st.cache_data
-def load_frame(source) -> pd.DataFrame:
-    return pd.read_csv(source)
+def load_frame(source) -> pd.DataFrame | None:
+    """Parse an uploaded CSV, returning None if it cannot be read.
+
+    A file that is not a readable CSV must produce a friendly message
+    rather than a traceback in the UI.
+    """
+    try:
+        return pd.read_csv(source)
+    except Exception:
+        return None
 
 
 def validate_frame(frame: pd.DataFrame) -> list[str]:
@@ -125,6 +133,14 @@ if st.session_state.source is None:
     st.stop()
 
 data = load_frame(st.session_state.source)
+
+if data is None:
+    st.error(
+        "That file could not be read as a CSV. Upload a comma-separated file "
+        f"with the {len(FEATURE_COLUMNS)} feature columns."
+    )
+    st.stop()
+
 missing = validate_frame(data)
 
 if missing:
