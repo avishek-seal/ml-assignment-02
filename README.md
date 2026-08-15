@@ -127,7 +127,7 @@ src/
   config.py             Constants
   data.py               Loading, deduplication, splitting
   pipeline.py           Model definitions and tuning grids
-  evaluate.py            Metric computation
+  evaluate.py           Metric computation
 scripts/
   fetch_data.py         One-off dataset download
   render_readme_table.py
