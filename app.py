@@ -10,7 +10,6 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 import streamlit as st
-from sklearn.metrics import classification_report
 
 from src.config import (
     FEATURE_COLUMNS,
@@ -22,7 +21,7 @@ from src.config import (
     TARGET_COLUMN,
     TEST_CSV,
 )
-from src.evaluate import compute_metrics, confusion_frame
+from src.evaluate import classification_frame, compute_metrics, confusion_frame
 
 st.set_page_config(
     page_title="Dry Bean Classifier", page_icon="🫘", layout="wide"
@@ -184,13 +183,7 @@ with evaluate_tab:
             )
         with right:
             st.subheader("Per-class report")
-            report = classification_report(
-                result["y_true"],
-                result["y_pred"],
-                labels=result["classes"],
-                zero_division=0,
-                output_dict=True,
+            report = classification_frame(
+                result["y_true"], result["y_pred"], result["classes"]
             )
-            st.dataframe(
-                pd.DataFrame(report).transpose().round(4), width="stretch"
-            )
+            st.dataframe(report, width="stretch")

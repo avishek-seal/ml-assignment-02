@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import (
     accuracy_score,
+    classification_report,
     confusion_matrix,
     f1_score,
     matthews_corrcoef,
@@ -81,6 +82,21 @@ def confusion_frame(
     labels = list(labels)
     matrix = confusion_matrix(y_true, y_pred, labels=labels)
     return pd.DataFrame(matrix, index=labels, columns=labels)
+
+
+def classification_frame(
+    y_true: Sequence, y_pred: Sequence, labels: Sequence
+) -> pd.DataFrame:
+    """Per-class precision/recall/F1 report as a labelled frame.
+
+    `labels` is required, matching `confusion_frame`: without it, absent
+    classes are silently dropped from the report rather than shown as rows.
+    """
+    labels = list(labels)
+    report = classification_report(
+        y_true, y_pred, labels=labels, zero_division=0, output_dict=True
+    )
+    return pd.DataFrame(report).transpose().round(4)
 
 
 def compute_metrics(

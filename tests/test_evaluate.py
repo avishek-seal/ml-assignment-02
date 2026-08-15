@@ -3,7 +3,12 @@ import math
 import numpy as np
 import pytest
 
-from src.evaluate import compute_metrics, confusion_frame, safe_macro_auc
+from src.evaluate import (
+    classification_frame,
+    compute_metrics,
+    confusion_frame,
+    safe_macro_auc,
+)
 
 LABELS = ["A", "B", "C", "D"]
 
@@ -125,3 +130,27 @@ def test_confusion_frame_counts_are_correct():
     assert frame.loc["B", "B"] == 1
     assert frame.loc["C", "C"] == 1
     assert frame.loc["D"].sum() == 0
+
+
+# --- classification report --------------------------------------------------
+
+
+def test_classification_frame_has_a_row_per_class_full_coverage():
+    y_true = ["A", "A", "B", "B", "C", "C", "D", "D"]
+    y_pred = ["A", "B", "B", "B", "C", "D", "D", "D"]
+    frame = classification_frame(y_true, y_pred, LABELS)
+    for label in LABELS:
+        assert label in frame.index
+
+
+def test_classification_frame_survives_partial_classes():
+    """Regression: without labels=, sklearn's classification_report drops
+    classes absent from y_true rather than reporting them as zero rows,
+    the same silent-misalignment risk confusion_frame guards against."""
+    y_true = ["A", "B"] * 5
+    y_pred = ["A", "A"] * 5
+    frame = classification_frame(y_true, y_pred, LABELS)
+    for label in LABELS:
+        assert label in frame.index
+    assert frame.loc["C", "support"] == 0
+    assert frame.loc["D", "support"] == 0
