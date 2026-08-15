@@ -93,13 +93,76 @@ Decision Tree via 3-fold CV.
 | Random Forest | **Best model on accuracy (0.9273), MCC (0.9121) and macro-F1 (0.9381)**, and 3rd on AUC (0.9948, within 0.001 of the top two). 200 bootstrap-sampled, feature-subsampled trees average out exactly the coarse leaf-probability problem that hurts the single Decision Tree (0.9125 accuracy, 0.8941 MCC): each tree sees a different bootstrap sample and a different random feature subset per split, so their leaf-frequency errors are decorrelated and cancel under averaging. The jump from one tree to two hundred is a **variance reduction**, not a change in inductive bias — the trees are still axis-aligned learners — which is consistent with Random Forest and Gradient Boosting (also tree-ensembles) occupying the top of the table together. |
 | Gradient Boosting | 2nd on AUC (0.9954, essentially tied with Logistic Regression's 0.9955) and 3rd on accuracy (0.9240), just behind Random Forest and Logistic Regression. Sequential boosting fits each new tree to the residual errors of the ensemble so far under a log-loss objective, which directly optimises probability *calibration and ranking* rather than a single hard split — that objective match is why its AUC sits at the very top alongside Logistic Regression's naturally probabilistic softmax output, while its accuracy, though strong, trails Random Forest's fully-averaged bootstrap ensemble slightly. |
 
-**Overall winner:** **Random Forest** — it is the best model on **MCC (0.9121)**
-and **macro-F1 (0.9381)**, not just accuracy (0.9273, also the highest). MCC
-in particular is the right tie-breaker here because it is computed from the
-whole confusion matrix and is not inflated by the ~6.8:1 class imbalance the
-way plain accuracy can be; Random Forest leading on MCC as well as accuracy
-means its advantage holds up on the rare varieties (e.g. BOMBAY, 522 rows),
-not only on the dominant DERMASON class.
+### Per-class behaviour: rarity and difficulty are not the same thing
+
+Recall per variety on the 2,709-row test split:
+
+| Model | BARBUNYA (265) | BOMBAY (104) | CALI (326) | DERMASON (709) | HOROZ (372) | SEKER (406) | SIRA (527) |
+|---|---|---|---|---|---|---|---|
+| Logistic Regression | 0.909 | **1.000** | 0.929 | 0.917 | 0.957 | 0.961 | *0.875* |
+| Decision Tree | 0.898 | **1.000** | 0.902 | 0.911 | 0.944 | 0.948 | *0.861* |
+| k-Nearest Neighbors | 0.898 | **1.000** | 0.957 | 0.911 | 0.944 | 0.953 | *0.869* |
+| Naive Bayes | *0.804* | **1.000** | 0.893 | 0.889 | 0.949 | 0.948 | 0.861 |
+| Random Forest | 0.925 | **1.000** | 0.923 | 0.935 | 0.952 | 0.968 | *0.858* |
+| Gradient Boosting | 0.932 | **1.000** | 0.926 | 0.922 | 0.949 | 0.966 | *0.856* |
+
+Bold marks the rarest class; italics mark each model's worst class.
+
+The imbalance intuition does not survive contact with the data. **BOMBAY is the
+rarest variety (104 test instances, 522 overall) and every one of the six models
+classifies it perfectly.** The hardest variety is **SIRA (0.856–0.875), the
+second-largest class**. Difficulty here is driven by *feature overlap*, not by
+frequency, and both halves of that are checkable:
+
+- **BOMBAY is linearly separable on a single feature.** Its smallest test-set
+  `Area` is 131,488, while the largest `Area` across all six other varieties
+  combined is 106,806 — the two ranges do not touch. Any model that can threshold
+  one feature gets BOMBAY right, which is exactly what all six do.
+- **SIRA overlaps DERMASON.** Of Random Forest's 75 SIRA misclassifications, 55
+  (73%) are predicted as DERMASON; the remainder scatter thinly across HOROZ (7),
+  SEKER (6), BARBUNYA (6) and CALI (1). SIRA's median `Area` (45,000) sits above
+  DERMASON's (31,663) but their distributions overlap heavily, and no single
+  geometric feature cleanly divides them.
+
+Two consequences worth stating. First, macro averaging remains the correct
+reporting choice — it is the honest default under a 6.8:1 imbalance and does not
+depend on the imbalance turning out to be benign — but on *this* dataset it
+happens to cost the models little, because the rare class is the easy one.
+Second, this is why no class re-weighting or resampling was applied: there is no
+rare-class failure to correct. Applying `class_weight="balanced"` here would
+have optimised for a problem the data does not have.
+
+### Overall winner
+
+**Random Forest**, on the point estimates: best on accuracy (0.9273), MCC
+(0.9121) and macro-F1 (0.9381). MCC is the right primary criterion because it is
+computed from the whole confusion matrix and is not inflated by class imbalance
+the way plain accuracy can be.
+
+**But the margin is inside the noise, and the honest conclusion is a four-way
+tie.** With 2,709 test instances at roughly 92.7% accuracy, the binomial
+standard error is 0.0050, so a 95% interval spans about ±0.010 — while Random
+Forest leads Logistic Regression by only 0.0026. McNemar's exact test on the
+paired predictions confirms this:
+
+| Random Forest vs | RF right, other wrong | RF wrong, other right | p-value | Verdict |
+|---|---|---|---|---|
+| Logistic Regression | 57 | 50 | 0.562 | not significant |
+| k-Nearest Neighbors | 61 | 45 | 0.145 | not significant |
+| Gradient Boosting | 37 | 28 | 0.321 | not significant |
+| Decision Tree | 89 | 49 | **0.0008** | significant |
+| Naive Bayes | 131 | 49 | **<0.0001** | significant |
+
+So the defensible reading is: **Random Forest, Logistic Regression, k-Nearest
+Neighbors and Gradient Boosting are statistically indistinguishable on this test
+set**, and Random Forest is chosen as the winner on its point estimates and on
+being best across all three threshold-based summary metrics simultaneously. The
+Decision Tree and Naive Bayes are genuinely, measurably worse — those two gaps
+are real.
+
+If a single model had to be deployed, Random Forest is the reasonable pick; but
+Logistic Regression deserves note as the cheapest and most interpretable member
+of that tied group, and it has the best AUC (0.9955) of all six.
 
 ## Streamlit app
 
