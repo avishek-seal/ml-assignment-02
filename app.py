@@ -50,7 +50,13 @@ def load_frame(source) -> pd.DataFrame | None:
     """
     try:
         return pd.read_csv(source)
-    except Exception:
+    except (
+        pd.errors.ParserError,
+        pd.errors.EmptyDataError,
+        UnicodeDecodeError,
+        ValueError,
+        OSError,
+    ):
         return None
 
 
@@ -147,6 +153,24 @@ if missing:
     st.error(f"Missing required columns: {', '.join(missing)}")
     st.stop()
 
+if len(data) == 0:
+    st.error("That file has a header but no data rows.")
+    st.stop()
+
+models = load_models()
+trained_classes = set(
+    next(iter(models.values())).named_steps["model"].classes_
+)
+
+if TARGET_COLUMN in data.columns:
+    unknown = sorted(set(data[TARGET_COLUMN].astype(str)) - trained_classes)
+    if unknown:
+        st.error(
+            f"Unrecognised `{TARGET_COLUMN}` values: {', '.join(unknown)}. "
+            f"Expected one of: {', '.join(sorted(trained_classes))}."
+        )
+        st.stop()
+
 has_labels = TARGET_COLUMN in data.columns
 st.success(f"Loaded {len(data):,} rows.")
 if not has_labels:
@@ -154,8 +178,6 @@ if not has_labels:
         f"No `{TARGET_COLUMN}` column — showing predictions only. "
         "Metrics and a confusion matrix need ground-truth labels."
     )
-
-models = load_models()
 
 evaluate_tab, compare_tab, dataset_tab = st.tabs(
     ["Evaluate", "Compare", "Dataset"]
@@ -219,14 +241,23 @@ with compare_tab:
         )
 
         rows = []
+        any_partial = False
         progress = st.progress(0.0, text="Scoring models…")
         for index, (name, pipe) in enumerate(models.items(), start=1):
             metrics = score(pipe, data)["metrics"]
+            any_partial = any_partial or metrics["auc_partial"]
             rows.append({"Model": name, **{
                 METRIC_LABELS[key]: metrics[key] for key in METRIC_KEYS
             }})
             progress.progress(index / len(models), text=f"Scored {name}")
         progress.empty()
+
+        if any_partial:
+            st.warning(
+                "This data does not cover all 7 varieties, so the AUC column "
+                "is computed over the classes present and is not comparable "
+                "with the full-test-set figures below."
+            )
 
         table = pd.DataFrame(rows).set_index("Model")
         st.dataframe(
