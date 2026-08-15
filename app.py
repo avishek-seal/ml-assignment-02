@@ -187,3 +187,109 @@ with evaluate_tab:
                 result["y_true"], result["y_pred"], result["classes"]
             )
             st.dataframe(report, width="stretch")
+
+# --- tab 2: compare --------------------------------------------------------
+
+with compare_tab:
+    if not has_labels:
+        st.info(
+            f"Add a `{TARGET_COLUMN}` column to compare models — "
+            "comparison needs ground-truth labels."
+        )
+    else:
+        st.caption(
+            "All six models scored live on the currently loaded data, so this "
+            "reflects your upload rather than a stored result."
+        )
+
+        rows = []
+        progress = st.progress(0.0, text="Scoring models…")
+        for index, (name, pipe) in enumerate(models.items(), start=1):
+            metrics = score(pipe, data)["metrics"]
+            rows.append({"Model": name, **{
+                METRIC_LABELS[key]: metrics[key] for key in METRIC_KEYS
+            }})
+            progress.progress(index / len(models), text=f"Scored {name}")
+        progress.empty()
+
+        table = pd.DataFrame(rows).set_index("Model")
+        st.dataframe(
+            table.style.format("{:.4f}").highlight_max(axis=0, color="#b7e4c7"),
+            width="stretch",
+        )
+
+        st.subheader("Metric comparison")
+        st.bar_chart(table)
+
+        best = table["MCC"].idxmax()
+        st.success(
+            f"Strongest on this data by MCC: **{best}** "
+            f"({table.loc[best, 'MCC']:.4f})"
+        )
+
+        with st.expander("Compare against the original test-set run"):
+            reference = load_reference_metrics()
+            st.caption(
+                f"Recorded at training time on {reference['n_test_rows']:,} "
+                "held-out rows. Loading the bundled test_data.csv should "
+                "reproduce these figures exactly."
+            )
+            st.dataframe(
+                pd.DataFrame(
+                    {
+                        name: {
+                            METRIC_LABELS[key]: scores[key]
+                            for key in METRIC_KEYS
+                        }
+                        for name, scores in reference["models"].items()
+                    }
+                ).transpose().round(4),
+                width="stretch",
+            )
+
+# --- tab 3: dataset --------------------------------------------------------
+
+with dataset_tab:
+    st.subheader("Loaded data")
+    left, middle, right = st.columns(3)
+    left.metric("Rows", f"{len(data):,}")
+    middle.metric("Features", len(FEATURE_COLUMNS))
+    right.metric(
+        "Varieties", data[TARGET_COLUMN].nunique() if has_labels else "—"
+    )
+
+    if has_labels:
+        st.subheader("Class distribution")
+        counts = data[TARGET_COLUMN].value_counts()
+        st.bar_chart(counts)
+        ratio = counts.max() / counts.min()
+        st.caption(
+            f"Largest class is {ratio:.1f}× the smallest. This imbalance is "
+            "why the metrics above are macro-averaged: weighted averaging "
+            "would let the largest variety dominate the score."
+        )
+
+    st.subheader("Feature summary")
+    st.dataframe(
+        data[FEATURE_COLUMNS].describe().transpose().round(3), width="stretch"
+    )
+
+    st.subheader("Feature correlation")
+    figure, axes = plt.subplots(figsize=(10, 8))
+    sns.heatmap(
+        data[FEATURE_COLUMNS].corr(),
+        cmap="coolwarm",
+        center=0,
+        square=True,
+        linewidths=0.4,
+        cbar_kws={"shrink": 0.7},
+        ax=axes,
+    )
+    figure.tight_layout()
+    st.pyplot(figure)
+    plt.close(figure)
+    st.caption(
+        "Several size features (Area, Perimeter, ConvexArea, EquivDiameter) "
+        "are near-perfectly correlated, since all measure bean size. This is "
+        "why the distance-based and linear models benefit from scaling."
+    )
