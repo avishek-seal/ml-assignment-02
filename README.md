@@ -201,13 +201,35 @@ tests/                  pytest suite
 
 ## Running locally
 
+Requires Python 3.11+ (`scikit-learn==1.8.0` needs it). If your default
+`python`/`python3` resolves to something older, name the interpreter
+explicitly, e.g. `python3.12`.
+
+Linux:
+
 ```bash
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
+python3.12 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 
 python train.py                  # retrain (artifacts are committed)
 streamlit run app.py
 ```
 
-Tests: `pip install -r requirements-dev.txt && python -m pytest`
+Windows:
+
+```powershell
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+
+python train.py
+streamlit run app.py
+```
+
+Tests:
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest
+```
