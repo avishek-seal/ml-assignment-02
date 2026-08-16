@@ -3,7 +3,7 @@
 Six classification models trained on the UCI Dry Bean dataset, served through
 an interactive Streamlit app.
 
-- **Live app:** <streamlit URL>
+- **Live app:** https://2025ac05071.streamlit.app/
 - **Repository:** https://github.com/avishek-seal/ml-assignment-02
 
 ## a. Problem statement
